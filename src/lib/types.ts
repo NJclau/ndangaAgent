@@ -8,6 +8,7 @@ export type UserProfile = {
   plan?: 'free' | 'pro' | 'enterprise';
   credits?: number;
   createdAt: Date;
+  fcmToken?: string;
 };
 
 export type Lead = {

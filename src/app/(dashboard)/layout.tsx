@@ -10,6 +10,7 @@ import AppHeader from '@/components/app-header';
 import type { UserProfile } from '@/lib/types';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { useNotifications } from '@/hooks/use-notifications';
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
   const { user, loading: authLoading } = useAuth();
   const { data: userProfile, loading: profileLoading } = useDocument<UserProfile>(user ? `users/${user.uid}` : '');
   const router = useRouter();
+  useNotifications(); // Initialize notification hooks
 
   useEffect(() => {
     if (!authLoading && !user) {
