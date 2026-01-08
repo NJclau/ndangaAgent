@@ -1,18 +1,33 @@
 'use client';
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IntelligenceCard } from '@/components/intelligence-card';
-import { mockLeads } from '@/lib/data';
 import type { Lead } from '@/lib/types';
 import { ListFilter } from 'lucide-react';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
-export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+type SortOption = 'newest' | 'confidence';
+type FilterOption = 'twitter' | 'reddit' | 'linkedin';
 
-  const filteredLeads = (status: Lead['status']) =>
-    leads.filter((lead) => lead.status === status);
+export default function LeadsPage() {
+  // State for sorting and filtering will be used later with Firestore queries
+  const [sort, setSort] = useState<SortOption>('newest');
+  const [filters, setFilters] = useState<Set<FilterOption>>(new Set());
+
+  const toggleFilter = (filter: FilterOption) => {
+    setFilters(prev => {
+      const newFilters = new Set(prev);
+      if (newFilters.has(filter)) {
+        newFilters.delete(filter);
+      } else {
+        newFilters.add(filter);
+      }
+      return newFilters;
+    });
+  };
+
+  // This will be replaced with a real-time Firestore query
+  const leads: Lead[] = [];
 
   return (
     <div className="flex flex-col h-full">
@@ -30,54 +45,43 @@ export default function LeadsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem checked>Newest</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Highest Confidence</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={sort === 'newest'} onClick={() => setSort('newest')}>
+                  Newest
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={sort === 'confidence'} onClick={() => setSort('confidence')}>
+                  Highest Confidence
+                </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Filter by Platform</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem>Twitter</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Reddit</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>LinkedIn</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.has('twitter')} onClick={() => toggleFilter('twitter')}>
+                  Twitter
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.has('reddit')} onClick={() => toggleFilter('reddit')}>
+                  Reddit
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.has('linkedin')} onClick={() => toggleFilter('linkedin')}>
+                  LinkedIn
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
       </div>
-      <Tabs defaultValue="pending" className="flex-grow">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="replied">Replied</TabsTrigger>
-          <TabsTrigger value="ignored">Ignored</TabsTrigger>
-        </TabsList>
-        <TabsContent value="pending" className="mt-4">
-          <div className="space-y-4">
-            {filteredLeads('pending').map((lead) => (
-              <IntelligenceCard key={lead.id} leadId={lead.id} />
-            ))}
-            {filteredLeads('pending').length === 0 && (
-                <p className='text-center text-muted-foreground pt-8'>No pending leads.</p>
-            )}
+      
+      <div className="space-y-4 flex-grow">
+        {leads.length > 0 ? (
+          leads.map((lead) => (
+            <IntelligenceCard key={lead.id} leadId={lead.id} />
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                 <MessageSquare className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">No leads yet</h3>
+              <p>Your leads will appear here once they are discovered.</p>
           </div>
-        </TabsContent>
-        <TabsContent value="replied" className="mt-4">
-          <div className="space-y-4">
-            {filteredLeads('replied').map((lead) => (
-              <IntelligenceCard key={lead.id} leadId={lead.id} />
-            ))}
-             {filteredLeads('replied').length === 0 && (
-                <p className='text-center text-muted-foreground pt-8'>No replied leads yet.</p>
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent value="ignored" className="mt-4">
-          <div className="space-y-4">
-            {filteredLeads('ignored').map((lead) => (
-              <IntelligenceCard key={lead.id} leadId={lead.id} />
-            ))}
-            {filteredLeads('ignored').length === 0 && (
-                <p className='text-center text-muted-foreground pt-8'>No ignored leads.</p>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }
