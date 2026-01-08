@@ -12,7 +12,7 @@ import type { UserProfile } from '@/lib/types';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useNotifications } from '@/hooks/use-notifications';
-import { setCrashlyticsUser } from '@/lib/crashlytics';
+import { useCrashlytics } from '@/hooks/use-crashlytics';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { mockUser } from '@/lib/data';
 
@@ -26,6 +26,13 @@ export default function DashboardLayout({
   const authLoading = false;
   const userProfile = mockUser;
   const profileLoading = false;
+  const { setCrashlyticsUser } = useCrashlytics();
+
+  useEffect(() => {
+    if(user?.uid) {
+      setCrashlyticsUser(user.uid);
+    }
+  }, [user, setCrashlyticsUser]);
 
   useNotifications(); // Initialize notification hooks
 

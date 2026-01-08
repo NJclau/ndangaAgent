@@ -1,8 +1,8 @@
 'use client';
 
-import React, { Component, ErrorInfo } from 'react';
+import React, { Component, ErrorInfo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { logError } from '@/lib/crashlytics';
+import { useCrashlytics } from '@/hooks/use-crashlytics';
 import { AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -11,28 +11,33 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+const ErrorBoundaryWrapper = ({ children }: Props) => {
+  const { logError } = useCrashlytics();
+
+  return <ErrorBoundary logError={logError}>{children}</ErrorBoundary>;
+};
+
+
+class ErrorBoundary extends Component<Props & { logError: (error: Error, context?: Record<string, any>) => void }, State> {
+  constructor(props: Props & { logError: (error: Error, context?: Record<string, any>) => void }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(_: Error): State {
-    // Update state so the next render will show the fallback UI.
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // You can also log the error to an error reporting service
     console.error("Uncaught error:", error, errorInfo);
-    logError(error, { componentStack: errorInfo.componentStack });
+    this.props.logError(error, { componentStack: errorInfo.componentStack });
   }
 
   render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
       return (
         <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center">
             <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
@@ -54,4 +59,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export default ErrorBoundaryWrapper;
