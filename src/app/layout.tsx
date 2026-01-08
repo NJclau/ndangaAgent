@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/use-auth';
@@ -12,7 +12,10 @@ export const metadata: Metadata = {
   icons: {
     apple: '/icon.png',
   },
-  themeColor: '#E6E6FA',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#4B0082',
 };
 
 const inter = Inter({
@@ -37,7 +40,6 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon.png"></link>
-        <meta name="theme-color" content="#4B0082" />
       </head>
       <body className={cn(inter.variable, spaceGrotesk.variable, 'font-body antialiased')}>
         <AuthProvider>
