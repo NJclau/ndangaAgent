@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -16,7 +17,8 @@ export function useNotifications() {
     if (typeof window === 'undefined' || !user) {
       return;
     }
-
+    
+    // Dynamically get messaging to ensure it's client-side only
     const messaging = getMessaging(app);
 
     // 1. Request Permission

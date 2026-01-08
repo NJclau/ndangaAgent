@@ -1,37 +1,42 @@
-import { logEvent } from "firebase/analytics";
-import { analytics } from "./firebase/config";
 
-export const logLogin = async (method: string) => {
-    const analyticsInstance = await analytics;
-    if (analyticsInstance) {
-        logEvent(analyticsInstance, 'login', { method });
+import { logEvent, getAnalytics, isSupported } from "firebase/analytics";
+import { app } from "./firebase/config";
+
+let analytics: any; // Use 'any' to avoid type issues before initialization
+
+isSupported().then(supported => {
+    if (supported && typeof window !== 'undefined') {
+        analytics = getAnalytics(app);
+    }
+});
+
+
+export const logLogin = (method: string) => {
+    if (analytics) {
+        logEvent(analytics, 'login', { method });
     }
 };
 
-export const logSignUp = async (method: string) => {
-    const analyticsInstance = await analytics;
-    if (analyticsInstance) {
-        logEvent(analyticsInstance, 'sign_up', { method });
+export const logSignUp = (method: string) => {
+    if (analytics) {
+        logEvent(analytics, 'sign_up', { method });
     }
 };
 
-export const logLeadContacted = async (leadId: string, confidence: number, platform: string) => {
-    const analyticsInstance = await analytics;
-    if (analyticsInstance) {
-        logEvent(analyticsInstance, 'lead_contacted', { leadId, confidence, platform });
+export const logLeadContacted = (leadId: string, confidence: number, platform: string) => {
+    if (analytics) {
+        logEvent(analytics, 'lead_contacted', { leadId, confidence, platform });
     }
 }
 
-export const logLeadDismissed = async (leadId: string, confidence: number) => {
-    const analyticsInstance = await analytics;
-    if (analyticsInstance) {
-        logEvent(analyticsInstance, 'lead_dismissed', { leadId, confidence });
+export const logLeadDismissed = (leadId: string, confidence: number) => {
+    if (analytics) {
+        logEvent(analytics, 'lead_dismissed', { leadId, confidence });
     }
 }
 
-export const logTargetAdded = async (platform: string, type: string) => {
-    const analyticsInstance = await analytics;
-    if (analyticsInstance) {
-        logEvent(analyticsInstance, 'target_added', { platform, type });
+export const logTargetAdded = (platform: string, type: string) => {
+    if (analytics) {
+        logEvent(analytics, 'target_added', { platform, type });
     }
 }

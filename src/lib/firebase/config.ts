@@ -1,10 +1,8 @@
 
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
-import { getCrashlytics, isSupported as isCrashlyticsSupported } from "firebase/crashlytics";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,19 +14,9 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
+const storage: FirebaseStorage = getStorage(app);
 
-// Conditional initialization for browser-only services
-const analytics = typeof window !== 'undefined' 
-  ? isAnalyticsSupported().then(yes => yes ? getAnalytics(app) : null) 
-  : Promise.resolve(null);
-
-const crashlytics = typeof window !== 'undefined'
-  ? isCrashlyticsSupported().then(yes => yes ? getCrashlytics(app) : null)
-  : Promise.resolve(null);
-
-
-export { app, auth, db, storage, analytics, crashlytics };
+export { app, auth, db, storage };
