@@ -2,47 +2,30 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check for rate limiting.
-    // This approach requires a backend function (e.g., a scheduled Cloud Function) 
-    // to periodically clean up old documents from the 'write_logs' subcollection 
-    // to prevent it from growing indefinitely.
-    function isRateLimited(userId) {
-      // Limit to 100 writes per hour.
-      return firestore.getAfter(
-          /databases/$(database)/documents/users/$(userId)/write_logs/
-      ).size() >= 100 &&
-      firestore.getAfter(
-          /databases/$(database)/documents/users/$(userId)/write_logs/
-      ).timestamp > timestamp.now() - duration.time(1, 0, 0, 0);
-    }
-
-    // Users can only read and write their own data.
+    // Users can only read/write their own data.
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId;
-      // Creation is allowed if the user is authenticated and not rate-limited.
-      allow create: if request.auth.uid == userId;
-
-      // Rate limiting log. A document is created here on each write.
-      match /write_logs/{logId} {
-        allow create: if request.auth.uid == userId;
-      }
-    }
-    
-    // Data collections where documents are owned by users.
-    match /{collection}/{docId} 
-    where collection in ['leads', 'targets', 'actions'] {
-      // Reads and writes are allowed if the user is the owner of the document.
-      allow read, write: if request.auth.uid == get(/databases/$(database)/documents/$(collection)/$(docId)).data.userId;
-      // Creation is allowed if the user is authenticated, the owner, and not rate-limited.
-      allow create: if request.auth.uid == request.resource.data.userId && !isRateLimited(request.auth.uid);
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // The 'workers' collection is admin-only.
-    // This requires setting a custom claim 'admin: true' on the admin user's auth token,
-    // which is typically done via a secure backend process (e.g., a Cloud Function).
+    // Leads can be read/written by the user who owns them.
+    match /leads/{leadId} {
+      allow read, write: if request.auth.uid == resource.data.userId;
+    }
+
+    // Targets can be read/written by the user who owns them.
+    match /targets/{targetId} {
+      allow read, write: if request.auth.uid == resource.data.userId;
+    }
+
+    // Actions can be read/written by the user who owns them.
+    match /actions/{actionId} {
+        allow read, write: if request.auth.uid == resource.data.userId;
+    }
+
+    // The workers collection is admin-only.
+    // This assumes an 'isAdmin' flag on the user's document.
     match /workers/{workerId} {
-      allow read, write: if request.auth.token.admin == true;
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
   }
 }

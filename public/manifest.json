@@ -1,10 +1,10 @@
 {
-  "name": "Ndanga Agent",
+  "name": "Ndanga.Agent",
   "short_name": "Ndanga",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#F9FAFB",
-  "theme_color": "#4B0082",
+  "theme_color": "#2563EB",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
@@ -13,12 +13,9 @@
     { 
       "name": "View Leads", 
       "url": "/leads",
-      "icons": [{ "src": "/icon-leads.png", "sizes": "96x96" }]
-    },
-    { 
-      "name": "View Targets", 
-      "url": "/targets",
-      "icons": [{ "src": "/icon-targets.png", "sizes": "96x96" }]
+      "icons": [
+        { "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }
+      ] 
     }
   ]
 }

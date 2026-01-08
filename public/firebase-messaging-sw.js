@@ -1,5 +1,44 @@
-// This file is intentionally left blank.
-// It is required for Firebase Cloud Messaging to work in the background.
-// Firebase will automatically add the necessary code to this file.
-// For more information, see: https://firebase.google.com/docs/cloud-messaging/js/client
-console.log('Firebase Messaging Service Worker registered.');
+
+importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
+
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: payload.notification.icon,
+    badge: payload.notification.badge,
+    actions: payload.notification.actions
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const leadId = event.notification.data.leadId;
+  const urlToOpen = new URL(`/leads/${leadId}`, self.location.origin).href;
+
+  if (event.action === 'view') {
+    clients.openWindow(urlToOpen);
+  } else if (event.action === 'dismiss') {
+    // Handle dismiss action
+  } else {
+    clients.openWindow(urlToOpen);
+  }
+});

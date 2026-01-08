@@ -1,42 +1,34 @@
 
-'use client';
-
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 interface UseIntersectionObserverProps {
   onIntersect: () => void;
   enabled?: boolean;
 }
 
-export function useIntersectionObserver({ onIntersect, enabled = true }: UseIntersectionObserverProps) {
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+export const useIntersectionObserver = ({ onIntersect, enabled = true }: UseIntersectionObserverProps) => {
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const handleIntersect = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      const target = entries[0];
-      if (target.isIntersecting && enabled) {
-        onIntersect();
-      }
-    },
-    [onIntersect, enabled]
-  );
+  const handleIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
+    if (entries[0].isIntersecting && enabled) {
+      onIntersect();
+    }
+  }, [enabled, onIntersect]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(handleIntersect, {
-      rootMargin: '100px', // Pre-fetch a bit before it's visible
-    });
+    const observer = new IntersectionObserver(handleIntersect, { rootMargin: '100px' });
+    const sentinel = sentinelRef.current;
 
-    const currentSentinel = sentinelRef.current;
-    if (currentSentinel) {
-      observer.observe(currentSentinel);
+    if (sentinel) {
+      observer.observe(sentinel);
     }
 
     return () => {
-      if (currentSentinel) {
-        observer.unobserve(currentSentinel);
+      if (sentinel) {
+        observer.unobserve(sentinel);
       }
     };
   }, [handleIntersect]);
 
   return { sentinelRef };
-}
+};

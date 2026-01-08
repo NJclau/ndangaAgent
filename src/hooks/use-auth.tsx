@@ -4,22 +4,18 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import {
   onAuthStateChanged,
   User,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  browserLocalPersistence,
-  setPersistence,
-  connectAuthEmulator,
-  ConfirmationResult,
+  signOut as firebaseSignOut,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
-import { mockUser } from '@/lib/data';
+import { usePhoneAuth } from './usePhoneAuth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  generateRecaptcha: () => void;
-  verifyOtp: (otp: string) => Promise<any>;
-  signInWithPhone: (phone: string) => Promise<any>;
+  isAuthenticated: boolean;
+  signIn: (phone: string, recaptchaToken: string) => Promise<{ success: boolean; message: string; }>;
+  signOut: () => Promise<void>;
+  verifyCode: (phone: string, code: string) => Promise<{ token: string; userId: string; } | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const { sendCode, verifyCode: verifyOtpCode, loading: phoneAuthLoading, error: phoneAuthError } = usePhoneAuth();
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -36,34 +33,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  const signIn = async (phone: string, recaptchaToken: string) => {
+    return await sendCode(phone, recaptchaToken);
+  };
 
-  const generateRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response: any) => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-        }
-      });
+  const verifyCode = async (phone: string, code: string) => {
+    const result = await verifyOtpCode(phone, code);
+    if (result?.token) {
+        // Here you would typically sign in with the custom token
+        // For simplicity, we'll rely on the onAuthStateChanged listener to update the user
     }
+    return result;
   };
 
-  const signInWithPhone = (phone: string) => {
-    const appVerifier = window.recaptchaVerifier;
-    return signInWithPhoneNumber(auth, phone, appVerifier);
+  const signOut = async () => {
+    await firebaseSignOut(auth);
   };
-  
-  const verifyOtp = (otp: string) => {
-    const confirmationResult = window.confirmationResult as ConfirmationResult;
-    return confirmationResult.confirm(otp);
-  }
+
+  const isAuthenticated = !!user;
 
   const value = {
-    user: mockUser as any, // Keep mock user for now to bypass login
-    loading: false, // Keep false to bypass loading screen
-    generateRecaptcha,
-    signInWithPhone,
-    verifyOtp,
+    user,
+    loading: loading || phoneAuthLoading,
+    isAuthenticated,
+    signIn,
+    signOut,
+    verifyCode,
   };
 
   return (
@@ -78,12 +73,5 @@ export const useAuth = () => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  // Always return a mock user when bypassing auth
-  return {
-    user: mockUser as any,
-    loading: false,
-    generateRecaptcha: () => {},
-    verifyOtp: (otp: string) => Promise.resolve(),
-    signInWithPhone: (phone: string) => Promise.resolve(),
-  };
+  return context;
 };
