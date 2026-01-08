@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { Inter, Space_Grotesk } from 'next/font/google';
 
 export const metadata: Metadata = {
   title: 'Ndanga Agent',
@@ -13,6 +14,18 @@ export const metadata: Metadata = {
   },
   themeColor: '#E6E6FA',
 };
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-body',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-headline',
+});
 
 export default function RootLayout({
   children,
@@ -25,12 +38,8 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon.png"></link>
         <meta name="theme-color" content="#4B0082" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
       </head>
-      <body className={cn('font-body antialiased')}>
+      <body className={cn(inter.variable, spaceGrotesk.variable, 'font-body antialiased')}>
         <AuthProvider>
           {children}
           <Toaster />

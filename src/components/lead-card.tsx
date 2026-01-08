@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -14,7 +15,10 @@ import { Badge } from '@/components/ui/badge';
 import type { Lead } from '@/lib/types';
 import { Twitter, Linkedin, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { GenerateReplyDialog } from './generate-reply-dialog';
+
+const GenerateReplyDialog = dynamic(() =>
+  import('./generate-reply-dialog').then((mod) => mod.GenerateReplyDialog)
+);
 
 interface LeadCardProps {
   lead: Lead;
@@ -41,7 +45,7 @@ export function LeadCard({ lead }: LeadCardProps) {
                 {lead.author}
                 <span className="text-sm font-normal text-muted-foreground">{lead.authorHandle}</span>
               </CardTitle>
-              <CardDescription>{formatDistanceToNow(lead.timestamp, { addSuffix: true })}</PostCardDescription>
+              <CardDescription>{formatDistanceToNow(new Date(lead.timestamp), { addSuffix: true })}</CardDescription>
             </div>
              <div className="flex items-center gap-2">
                  {lead.tags?.map(tag => (
@@ -73,7 +77,7 @@ export function LeadCard({ lead }: LeadCardProps) {
           {lead.status === 'ignored' && <p className="text-sm text-muted-foreground">You ignored this lead.</p>}
         </CardFooter>
       </Card>
-      <GenerateReplyDialog lead={lead} open={showReplyDialog} onOpenChange={setShowReplyDialog} />
+      {showReplyDialog && <GenerateReplyDialog lead={lead} open={showReplyDialog} onOpenChange={setShowReplyDialog} />}
     </>
   );
 }
