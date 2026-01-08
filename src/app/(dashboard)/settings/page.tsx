@@ -1,4 +1,5 @@
 'use client';
+
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,33 +16,75 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { mockUser } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
+import { useDocument } from '@/hooks/use-document';
+import type { UserProfile } from '@/lib/types';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const settingsSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }).optional(),
   businessName: z.string().optional(),
   businessCategory: z.string().optional(),
   keywords: z.string().optional(),
 });
 
 export default function SettingsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const { data: userProfile, loading: profileLoading } = useDocument<UserProfile>(user ? `users/${user.uid}` : '');
   const { toast } = useToast();
+
   const form = useForm<z.infer<typeof settingsSchema>>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      name: mockUser.name || '',
-      businessName: mockUser.businessName || '',
-      businessCategory: mockUser.businessCategory || '',
-      keywords: mockUser.keywords?.join(', ') || '',
-    },
   });
 
-  function onSubmit(values: z.infer<typeof settingsSchema>) {
-    console.log(values);
-    toast({
-      title: 'Settings Saved',
-      description: 'Your profile has been updated successfully.',
-    });
+  useEffect(() => {
+    if (userProfile) {
+      form.reset({
+        name: userProfile.name || '',
+        businessName: userProfile.businessName || '',
+        businessCategory: userProfile.businessCategory || '',
+        keywords: userProfile.keywords?.join(', ') || '',
+      });
+    }
+  }, [userProfile, form]);
+
+  async function onSubmit(values: z.infer<typeof settingsSchema>) {
+    if (!user) return;
+    
+    const keywordsArray = values.keywords?.split(',').map(k => k.trim()).filter(Boolean) || [];
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        name: values.name,
+        businessName: values.businessName,
+        businessCategory: values.businessCategory,
+        keywords: keywordsArray,
+      });
+
+      toast({
+        title: 'Settings Saved',
+        description: 'Your profile has been updated successfully.',
+      });
+    } catch (error) {
+      console.error("Failed to update settings:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not save your settings. Please try again.',
+      });
+    }
+  }
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -113,7 +156,10 @@ export default function SettingsPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Save Changes</Button>
+              <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
             </form>
           </Form>
         </CardContent>

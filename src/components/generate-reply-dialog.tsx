@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,10 +11,11 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import type { Lead } from '@/lib/types';
+import type { Lead, UserProfile } from '@/lib/types';
 import { generateReply } from '@/ai/flows/automated-reply-generation';
 import { Loader2, Copy, Check } from 'lucide-react';
-import { mockUser } from '@/lib/data'; // DUMMY DATA
+import { useAuth } from '@/hooks/use-auth';
+import { useDocument } from '@/hooks/use-document';
 
 interface GenerateReplyDialogProps {
   lead: Lead;
@@ -23,6 +24,8 @@ interface GenerateReplyDialogProps {
 }
 
 export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyDialogProps) {
+  const { user } = useAuth();
+  const { data: userProfile } = useDocument<UserProfile>(user ? `users/${user.uid}` : '');
   const [instructions, setInstructions] = useState('');
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,6 +33,14 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
   const { toast } = useToast();
 
   const handleGenerate = async () => {
+    if (!userProfile) {
+        toast({
+            variant: 'destructive',
+            title: 'Profile Not Found',
+            description: 'Please complete your profile in settings first.',
+        });
+        return;
+    }
     setLoading(true);
     setDraft('');
     try {
@@ -37,8 +48,8 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
         leadContent: lead.text,
         confidenceScore: lead.confidence,
         userInstructions: instructions,
-        businessCategory: mockUser.businessCategory || 'business',
-        userKeywords: mockUser.keywords || [],
+        businessCategory: userProfile.businessCategory || 'business',
+        userKeywords: userProfile.keywords || [],
       });
       setDraft(result.draftReply);
     } catch (error) {
