@@ -11,6 +11,9 @@ import type { UserProfile } from '@/lib/types';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useNotifications } from '@/hooks/use-notifications';
+import { setCrashlyticsUser } from '@/lib/crashlytics';
+import ErrorBoundary from '@/components/ErrorBoundary';
+
 
 export default function DashboardLayout({
   children,
@@ -25,6 +28,9 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
+    }
+    if(user) {
+      setCrashlyticsUser(user.uid);
     }
   }, [user, authLoading, router]);
   
@@ -56,7 +62,9 @@ export default function DashboardLayout({
       <div className="flex flex-col">
         <AppHeader />
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40">
-          {children}
+           <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

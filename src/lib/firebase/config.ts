@@ -1,8 +1,10 @@
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
+import { getCrashlytics, isSupported as isCrashlyticsSupported } from "firebase/crashlytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,6 +20,15 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);
 
-export { app, auth, db, storage, analytics };
+// Conditional initialization for browser-only services
+const analytics = typeof window !== 'undefined' 
+  ? isAnalyticsSupported().then(yes => yes ? getAnalytics(app) : null) 
+  : Promise.resolve(null);
+
+const crashlytics = typeof window !== 'undefined'
+  ? isCrashlyticsSupported().then(yes => yes ? getCrashlytics(app) : null)
+  : Promise.resolve(null);
+
+
+export { app, auth, db, storage, analytics, crashlytics };
