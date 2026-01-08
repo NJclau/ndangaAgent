@@ -22,13 +22,17 @@ const storage: FirebaseStorage = getStorage(app);
 
 
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    console.log("Connecting to Firebase emulators");
-    try {
-        connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-        connectFirestoreEmulator(db, "localhost", 8080);
-        connectStorageEmulator(storage, "localhost", 9199);
-    } catch (error) {
-        console.error("Error connecting to emulators:", error);
+    // Check if emulators are already running to avoid re-initialization errors
+    // @ts-ignore
+    if (!auth.emulatorConfig) {
+        try {
+            console.log("Connecting to Firebase emulators");
+            connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+            connectFirestoreEmulator(db, "localhost", 8080);
+            connectStorageEmulator(storage, "localhost", 9199);
+        } catch (error) {
+            console.error("Error connecting to emulators:", error);
+        }
     }
 }
 
