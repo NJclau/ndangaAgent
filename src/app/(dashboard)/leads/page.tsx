@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LeadCard } from '@/components/lead-card';
+import { IntelligenceCard } from '@/components/intelligence-card';
 import { mockLeads } from '@/lib/data';
 import type { Lead } from '@/lib/types';
 import { ListFilter } from 'lucide-react';
@@ -50,7 +50,7 @@ export default function LeadsPage() {
         <TabsContent value="pending" className="mt-4">
           <div className="space-y-4">
             {filteredLeads('pending').map((lead) => (
-              <LeadCard key={lead.id} lead={lead} />
+              <IntelligenceCard key={lead.id} leadId={lead.id} />
             ))}
             {filteredLeads('pending').length === 0 && (
                 <p className='text-center text-muted-foreground pt-8'>No pending leads.</p>
@@ -60,7 +60,7 @@ export default function LeadsPage() {
         <TabsContent value="replied" className="mt-4">
           <div className="space-y-4">
             {filteredLeads('replied').map((lead) => (
-              <LeadCard key={lead.id} lead={lead} />
+              <IntelligenceCard key={lead.id} leadId={lead.id} />
             ))}
              {filteredLeads('replied').length === 0 && (
                 <p className='text-center text-muted-foreground pt-8'>No replied leads yet.</p>
@@ -70,7 +70,7 @@ export default function LeadsPage() {
         <TabsContent value="ignored" className="mt-4">
           <div className="space-y-4">
             {filteredLeads('ignored').map((lead) => (
-              <LeadCard key={lead.id} lead={lead} />
+              <IntelligenceCard key={lead.id} leadId={lead.id} />
             ))}
             {filteredLeads('ignored').length === 0 && (
                 <p className='text-center text-muted-foreground pt-8'>No ignored leads.</p>
