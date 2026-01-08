@@ -1,0 +1,111 @@
+import { Lead, Target, UserProfile } from './types';
+
+export const mockUser: UserProfile = {
+  id: 'user-1',
+  name: 'John Doe',
+  phone: '+11234567890',
+  businessName: 'Acme Inc.',
+  businessCategory: 'SaaS',
+  keywords: ['crm', 'sales', 'marketing'],
+  plan: 'pro',
+  credits: 85,
+  createdAt: new Date(),
+};
+
+export const mockLeads: Lead[] = [
+  {
+    id: 'lead-1',
+    userId: 'user-1',
+    platform: 'twitter',
+    postId: '123',
+    text: "Anyone have recommendations for a good CRM for a small business? We're growing fast and our spreadsheets can't keep up!",
+    author: 'Jane Smith',
+    authorHandle: '@janesmith',
+    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+    confidence: 0.92,
+    reason: 'High relevance due to direct mention of "CRM" and "small business".',
+    status: 'pending',
+    tags: ['High-Intent'],
+    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+  },
+  {
+    id: 'lead-2',
+    userId: 'user-1',
+    platform: 'reddit',
+    postId: '456',
+    text: 'Looking for software to help manage our sales pipeline. What are you all using?',
+    author: 'some_user',
+    authorHandle: 'u/some_user',
+    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
+    confidence: 0.85,
+    reason: 'Strong intent shown by "manage our sales pipeline".',
+    status: 'pending',
+    tags: ['sales-tool'],
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
+  },
+  {
+    id: 'lead-3',
+    userId: 'user-1',
+    platform: 'twitter',
+    postId: '789',
+    text: 'Just finished a marketing campaign and the results are amazing! #marketing',
+    author: 'Marketer Mike',
+    authorHandle: '@mikemarketing',
+    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+    confidence: 0.45,
+    reason: 'Mentions "marketing" but lacks clear intent for purchase.',
+    status: 'ignored',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+  },
+    {
+    id: 'lead-4',
+    userId: 'user-1',
+    platform: 'linkedin',
+    postId: '101',
+    text: 'We are excited to announce our new product that helps B2B companies with their marketing efforts. Check it out!',
+    author: 'SaaS Company',
+    authorHandle: 'saas-co',
+    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    confidence: 0.6,
+    reason: 'Mentions marketing, but appears to be a promotional post, not a lead seeking a solution.',
+    status: 'replied',
+    draftReply: 'Hi! I saw you are in the marketing space. Our CRM could be a great fit for your team...',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+  },
+];
+
+export const mockTargets: Target[] = [
+    {
+        id: 'target-1',
+        userId: 'user-1',
+        platform: 'twitter',
+        type: 'keyword',
+        term: 'looking for CRM',
+        status: 'active',
+        leadsFound: 23,
+        lastScanned: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        createdAt: new Date('2023-01-15'),
+    },
+    {
+        id: 'target-2',
+        userId: 'user-1',
+        platform: 'reddit',
+        type: 'keyword',
+        term: 'sales software',
+        status: 'active',
+        leadsFound: 15,
+        lastScanned: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        createdAt: new Date('2023-02-20'),
+    },
+    {
+        id: 'target-3',
+        userId: 'user-1',
+        platform: 'twitter',
+        type: 'hashtag',
+        term: '#saastools',
+        status: 'paused',
+        leadsFound: 102,
+        lastScanned: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        createdAt: new Date('2023-03-01'),
+    }
+];
