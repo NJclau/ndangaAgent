@@ -14,7 +14,9 @@ import {z} from 'genkit';
 const GenerateReplyInputSchema = z.object({
   leadContent: z.string().describe('The content of the lead.'),
   confidenceScore: z.number().describe('The confidence score of the lead.'),
-  userInstructions: z.string().describe('The user instructions for generating the reply.'),
+  userInstructions: z.string().optional().describe('The user instructions for generating the reply.'),
+  businessCategory: z.string().describe('The user\'s business category.'),
+  userKeywords: z.array(z.string()).describe('Keywords related to what the user sells.'),
 });
 export type GenerateReplyInput = z.infer<typeof GenerateReplyInputSchema>;
 
@@ -31,15 +33,19 @@ const prompt = ai.definePrompt({
   name: 'generateReplyPrompt',
   input: {schema: GenerateReplyInputSchema},
   output: {schema: GenerateReplyOutputSchema},
-  prompt: `You are an AI assistant helping a user respond to leads.
+  prompt: `You are an AI assistant helping a user in Kigali, Rwanda respond to leads.
+Your tone should be helpful, professional, and friendly. You can understand and use Kinyarwanda, English, and French.
 
-  Based on the lead content, its confidence score, and the user's instructions, generate a draft reply.
+The user's business is in the '{businessCategory}' category, and they sell things related to these keywords: {{#each userKeywords}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.
 
-  Lead Content: {{{leadContent}}}
-  Confidence Score: {{{confidenceScore}}}
-  User Instructions: {{{userInstructions}}}
+Based on the lead content, its confidence score, and the user's instructions (if any), generate a draft reply.
 
-  Draft Reply:`,
+Lead Content: {{{leadContent}}}
+Confidence Score: {{{confidenceScore}}}
+{{#if userInstructions}}User Instructions: {{{userInstructions}}}{{/if}}
+
+Draft a concise and relevant reply that offers a solution to the lead's problem and gently introduces the user's business as a potential option.
+`,
 });
 
 const generateReplyFlow = ai.defineFlow(

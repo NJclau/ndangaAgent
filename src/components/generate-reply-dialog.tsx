@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Lead } from '@/lib/types';
 import { generateReply } from '@/ai/flows/automated-reply-generation';
 import { Loader2, Copy, Check } from 'lucide-react';
+import { mockUser } from '@/lib/data'; // DUMMY DATA
 
 interface GenerateReplyDialogProps {
   lead: Lead;
@@ -36,6 +37,8 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
         leadContent: lead.text,
         confidenceScore: lead.confidence,
         userInstructions: instructions,
+        businessCategory: mockUser.businessCategory || 'business',
+        userKeywords: mockUser.keywords || [],
       });
       setDraft(result.draftReply);
     } catch (error) {
@@ -55,9 +58,20 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+  
+  // Reset state when dialog is closed
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setInstructions('');
+      setDraft('');
+      setLoading(false);
+      setCopied(false);
+    }
+    onOpenChange(isOpen);
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Generate AI Reply</DialogTitle>
@@ -77,7 +91,20 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
             Generate Draft
           </Button>
 
-          {draft && (
+          {loading && (
+             <div className="mt-4 space-y-2 animate-pulse">
+                <div className="flex justify-between items-center">
+                    <div className="h-6 bg-muted rounded w-1/3"></div>
+                </div>
+              <div className="rounded-md border bg-muted p-4 space-y-2">
+                <div className="h-4 bg-muted-foreground/20 rounded w-full"></div>
+                <div className="h-4 bg-muted-foreground/20 rounded w-5/6"></div>
+                <div className="h-4 bg-muted-foreground/20 rounded w-full"></div>
+              </div>
+            </div>
+          )}
+
+          {!loading && draft && (
             <div className="mt-4 space-y-2">
                 <div className="flex justify-between items-center">
                     <h4 className="font-medium text-lg">Generated Draft</h4>
@@ -92,7 +119,7 @@ export function GenerateReplyDialog({ lead, open, onOpenChange }: GenerateReplyD
           )}
         </div>
         <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
             Close
           </Button>
         </DialogFooter>
