@@ -11,6 +11,7 @@ import {
   connectAuthEmulator,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
+import { mockUser } from '@/lib/data';
 
 interface AuthContextType {
   user: User | null;
@@ -23,79 +24,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const user = null; // Bypassing auth
+  const loading = false; // Bypassing auth
 
-  useEffect(() => {
-    // Set persistence to long-term (browserLocalPersistence)
-    setPersistence(auth, browserLocalPersistence)
-      .then(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-          setUser(user);
-          setLoading(false);
-        });
-        return () => unsubscribe();
-      })
-      .catch((error) => {
-        console.error('Error setting auth persistence', error);
-        setLoading(false);
-      });
-  }, []);
-
-  const generateRecaptcha = () => {
-    // This effect should only run on the client side.
-    if (typeof window !== 'undefined') {
-      // Connect to emulator if in development
-      if (process.env.NODE_ENV === 'development') {
-        // @ts-ignore
-        if (!auth.emulatorConfig) {
-          try {
-            connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-            console.log('Auth emulator connected');
-          } catch (error) {
-             console.error("Error connecting to auth emulator:", error);
-          }
-        }
-      }
-
-      try {
-        if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-            callback: (response: any) => {
-              // reCAPTCHA solved, allow signInWithPhoneNumber.
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Error generating reCAPTCHA', error);
-      }
-    }
-  };
-
-  const signInWithPhone = (phone: string) => {
-    const appVerifier = window.recaptchaVerifier;
-    return signInWithPhoneNumber(auth, phone, appVerifier);
-  };
-
-  const verifyOtp = (otp: string) => {
-    if (window.confirmationResult) {
-      return window.confirmationResult.confirm(otp);
-    }
-    return Promise.reject('No confirmation result available.');
-  };
+  const generateRecaptcha = () => {};
+  const signInWithPhone = (phone: string) => Promise.resolve();
+  const verifyOtp = (otp: string) => Promise.resolve();
 
   return (
-    <AuthContext.Provider value={{ user, loading, generateRecaptcha, verifyOtp, signInWithPhone }}>
+    <AuthContext.Provider value={{ user: user as any, loading, generateRecaptcha, verifyOtp, signInWithPhone }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  // Always return a mock user when bypassing auth
+  return {
+    user: mockUser as any,
+    loading: false,
+    generateRecaptcha: () => {},
+    verifyOtp: (otp: string) => Promise.resolve(),
+    signInWithPhone: (phone: string) => Promise.resolve(),
+  };
 };

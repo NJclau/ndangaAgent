@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase/config';
 import { useNotifications } from '@/hooks/use-notifications';
 import { setCrashlyticsUser } from '@/lib/crashlytics';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { mockUser } from '@/lib/data';
 
 
 export default function DashboardLayout({
@@ -20,33 +21,12 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading } = useAuth();
-  const { data: userProfile, loading: profileLoading } = useDocument<UserProfile>(user ? `users/${user.uid}` : '');
-  const router = useRouter();
-  useNotifications(); // Initialize notification hooks
+  const user = mockUser;
+  const authLoading = false;
+  const userProfile = mockUser;
+  const profileLoading = false;
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-    if(user) {
-      setCrashlyticsUser(user.uid);
-    }
-  }, [user, authLoading, router]);
-  
-  useEffect(() => {
-    if (user && !profileLoading && !userProfile) {
-        // Create a user profile if it doesn't exist
-        const userRef = doc(db, 'users', user.uid);
-        setDoc(userRef, {
-            id: user.uid,
-            phone: user.phoneNumber,
-            credits: 100, // Starting credits
-            plan: 'free',
-            createdAt: new Date(),
-        }, { merge: true });
-    }
-  }, [user, userProfile, profileLoading]);
+  useNotifications(); // Initialize notification hooks
 
   if (authLoading || profileLoading || !user) {
     return (
