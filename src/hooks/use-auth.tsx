@@ -1,7 +1,15 @@
-"use client";
+'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, RecaptchaVerifier, signInWithPhoneNumber, browserSessionPersistence, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  User,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  browserLocalPersistence,
+  setPersistence,
+  connectAuthEmulator,
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 
 interface AuthContextType {
@@ -19,38 +27,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set persistence to 30 days (browserLocalPersistence)
-    setPersistence(auth, browserLocalPersistence).then(() => {
+    // Set persistence to long-term (browserLocalPersistence)
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
-            setLoading(false);
+          setUser(user);
+          setLoading(false);
         });
         return () => unsubscribe();
-    }).catch((error) => {
-        console.error("Error setting auth persistence", error);
+      })
+      .catch((error) => {
+        console.error('Error setting auth persistence', error);
         setLoading(false);
-    });
+      });
   }, []);
 
   const generateRecaptcha = () => {
     // This effect should only run on the client side.
     if (typeof window !== 'undefined') {
-        try {
-          if (!window.recaptchaVerifier) {
-            window.recaptchaVerifier = new RecaptchaVerifier(
-              auth,
-              "recaptcha-container",
-              {
-                size: "invisible",
-                callback: (response: any) => {
-                  // reCAPTCHA solved, allow signInWithPhoneNumber.
-                },
-              }
-            );
+      // Connect to emulator if in development
+      if (process.env.NODE_ENV === 'development') {
+        // @ts-ignore
+        if (!auth.emulatorConfig) {
+          try {
+            connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+            console.log('Auth emulator connected');
+          } catch (error) {
+             console.error("Error connecting to auth emulator:", error);
           }
-        } catch (error) {
-          console.error("Error generating reCAPTCHA", error);
         }
+      }
+
+      try {
+        if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible',
+            callback: (response: any) => {
+              // reCAPTCHA solved, allow signInWithPhoneNumber.
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error generating reCAPTCHA', error);
+      }
     }
   };
 
@@ -58,14 +77,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const appVerifier = window.recaptchaVerifier;
     return signInWithPhoneNumber(auth, phone, appVerifier);
   };
-  
+
   const verifyOtp = (otp: string) => {
     if (window.confirmationResult) {
       return window.confirmationResult.confirm(otp);
     }
-    return Promise.reject("No confirmation result available.");
+    return Promise.reject('No confirmation result available.');
   };
-  
 
   return (
     <AuthContext.Provider value={{ user, loading, generateRecaptcha, verifyOtp, signInWithPhone }}>
