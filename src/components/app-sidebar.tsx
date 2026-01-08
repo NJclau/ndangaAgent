@@ -16,9 +16,9 @@ import { useAuth } from "@/hooks/use-auth"
 import { auth } from "@/lib/firebase/config"
 import { Logo } from "./logo"
 import { Badge } from "./ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Progress } from "./ui/progress"
-import { mockUser } from "@/lib/data"
+import type { UserProfile } from "@/lib/types"
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -30,7 +30,7 @@ const bottomMenuItems = [
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ]
 
-export default function AppSidebar({ isMobile = false }: { isMobile?: boolean }) {
+export default function AppSidebar({ isMobile = false, userProfile }: { isMobile?: boolean, userProfile: UserProfile | null }) {
   const pathname = usePathname()
   const { user } = useAuth()
 
@@ -67,17 +67,18 @@ export default function AppSidebar({ isMobile = false }: { isMobile?: boolean })
         </nav>
       </div>
 
-      {!isMobile && (
+      {!isMobile && userProfile && (
         <div className="mt-auto p-4">
           <Card>
             <CardHeader className="p-2 pt-0 md:p-4">
               <CardTitle>Credits</CardTitle>
+              <CardDescription className="text-xs">{userProfile.plan} plan</CardDescription>
             </CardHeader>
             <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
               <div className="text-center text-xs text-muted-foreground mb-2">
-                {mockUser.credits} / 100 used
+                {userProfile.credits || 0} / 100 used
               </div>
-              <Progress value={mockUser.credits} aria-label={`${mockUser.credits}% credits used`} />
+              <Progress value={userProfile.credits || 0} aria-label={`${userProfile.credits || 0}% credits used`} />
             </CardContent>
           </Card>
           <nav className="grid items-start gap-1 px-2 text-sm font-medium lg:px-4 mt-4">
