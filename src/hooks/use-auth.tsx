@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { onAuthStateChanged, User, RecaptchaVerifier, signInWithPhoneNumber, browserSessionPersistence, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 
 interface AuthContextType {
@@ -19,11 +19,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
+    // Set persistence to 30 days (browserLocalPersistence)
+    setPersistence(auth, browserLocalPersistence).then(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }).catch((error) => {
+        console.error("Error setting auth persistence", error);
+        setLoading(false);
     });
-    return () => unsubscribe();
   }, []);
 
   const generateRecaptcha = () => {

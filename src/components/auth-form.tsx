@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
+// Rwanda phone number regex (starts with +250, followed by 9 digits)
+const RWANDA_PHONE_REGEX = /^\+250\d{9}$/;
+
 export function AuthForm() {
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+250');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
@@ -21,11 +24,33 @@ export function AuthForm() {
     generateRecaptcha();
   }, [generateRecaptcha]);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    // Ensure it starts with +250
+    if (!value.startsWith('+250')) {
+      value = '+250';
+    }
+    // Allow only digits after the prefix, and limit length
+    const numericPart = value.substring(4).replace(/\D/g, '');
+    setPhone(`+250${numericPart.substring(0, 9)}`);
+  };
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    if (!RWANDA_PHONE_REGEX.test(phone)) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Phone Number',
+            description: 'Please enter a valid Rwandan phone number (e.g., +250 7XX XXX XXX).',
+        });
+        setLoading(false);
+        return;
+    }
+
     try {
-      const confirmationResult = await signInWithPhone(`+${phone.replace(/\D/g, '')}`);
+      const confirmationResult = await signInWithPhone(phone);
       window.confirmationResult = confirmationResult;
       setShowOtp(true);
       toast({ title: 'OTP Sent', description: 'Check your phone for the verification code.' });
@@ -69,9 +94,9 @@ export function AuthForm() {
             <Input
               id="phone"
               type="tel"
-              placeholder="Enter phone number with country code"
+              placeholder="+250 7XX XXX XXX"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
               required
               disabled={loading}
             />
