@@ -73,6 +73,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { logTargetAdded } from '@/lib/analytics';
 
 const targetSchema = z.object({
     term: z.string().min(3, "Term must be at least 3 characters.").max(50, "Term must be 50 characters or less."),
@@ -152,6 +153,7 @@ export default function TargetsPage() {
             lastScanned: serverTimestamp(),
             createdAt: serverTimestamp(),
         });
+        logTargetAdded(values.platform, values.type);
         toast({ title: 'Target Created', description: 'Your new target is now active.' });
       }
       setIsDialogOpen(false);

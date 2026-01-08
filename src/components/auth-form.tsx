@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { logLogin, logSignUp } from '@/lib/analytics';
 
 // Rwanda phone number regex (starts with +250, followed by 9 digits)
 const RWANDA_PHONE_REGEX = /^\+250\d{9}$/;
@@ -54,6 +55,7 @@ export function AuthForm() {
       window.confirmationResult = confirmationResult;
       setShowOtp(true);
       toast({ title: 'OTP Sent', description: 'Check your phone for the verification code.' });
+      logLogin('phone');
     } catch (error: any) {
       console.error(error);
       toast({
@@ -72,6 +74,7 @@ export function AuthForm() {
     try {
       await verifyOtp(otp);
       toast({ title: 'Success', description: 'You are now signed in.' });
+      logSignUp('phone');
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);

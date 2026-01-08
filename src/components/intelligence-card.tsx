@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { logLeadContacted, logLeadDismissed } from '@/lib/analytics';
 
 const platformDetails = {
   twitter: {
@@ -56,6 +57,11 @@ export function IntelligenceCard({ leadId }: { leadId: string }) {
     try {
       const leadRef = doc(db, 'leads', leadId);
       await updateDoc(leadRef, { status });
+      if (status === 'ignored') {
+        logLeadDismissed(leadId, lead!.confidence);
+      } else {
+        logLeadContacted(leadId, lead!.confidence, lead!.platform);
+      }
       toast({
         title: `Lead ${status}`,
         description: `The lead has been moved to the '${status}' list.`,
@@ -177,6 +183,7 @@ export function IntelligenceCard({ leadId }: { leadId: string }) {
             asChild 
             style={{ backgroundColor: '#25D366', color: 'white' }}
             className='hover:bg-[#1EAE54]'
+            onClick={() => updateLeadStatus('replied')}
         >
             <a href={`whatsapp://send?text=${whatsappText}`} target="_blank" rel="noopener noreferrer">
                 Reply via WhatsApp
