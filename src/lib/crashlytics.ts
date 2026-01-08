@@ -1,16 +1,21 @@
 
-import { getCrashlytics, log, recordError, setUserId } from "firebase/crashlytics";
 import { app } from "./firebase/config";
 
-let crashlytics: any; // Use 'any' to avoid type issues
+let crashlyticsInstance: any = null;
 
-// Initialize Crashlytics only on the client side
-if (typeof window !== 'undefined') {
+const getCrashlyticsInstance = async () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  if (!crashlyticsInstance) {
+    const { getCrashlytics } = await import("firebase/crashlytics");
     try {
-        crashlytics = getCrashlytics(app);
+        crashlyticsInstance = getCrashlytics(app);
     } catch (e) {
         console.error("Crashlytics initialization failed", e);
     }
+  }
+  return crashlyticsInstance;
 }
 
 
@@ -19,13 +24,13 @@ if (typeof window !== 'undefined') {
  * @param error The error object to log.
  * @param context Additional context to include with the error report.
  */
-export function logError(error: Error, context?: Record<string, any>) {
+export async function logError(error: Error, context?: Record<string, any>) {
+  const crashlytics = await getCrashlyticsInstance();
   if (!crashlytics) return;
 
-  // In a real app, you might add more context here
-  // setCustomKey('some_key', 'some_value'); // Note: setCustomKey is not directly available on the crashlytics instance
+  const { log, recordError } = await import("firebase/crashlytics");
+
   if (context) {
-    // A common way to add context is to log it before the error
     Object.entries(context).forEach(([key, value]) => {
         log(crashlytics, `${key}: ${String(value)}`);
     });
@@ -38,9 +43,11 @@ export function logError(error: Error, context?: Record<string, any>) {
  * Sets the user ID for Crashlytics sessions.
  * @param userId The unique identifier for the user.
  */
-export function setCrashlyticsUser(userId: string | null) {
+export async function setCrashlyticsUser(userId: string | null) {
+  const crashlytics = await getCrashlyticsInstance();
   if (!crashlytics) return;
   
+  const { setUserId } = await import("firebase/crashlytics");
   setUserId(crashlytics, userId || '');
 }
 
@@ -48,8 +55,10 @@ export function setCrashlyticsUser(userId: string | null) {
  * Logs a simple message to be included in Crashlytics reports as a breadcrumb.
  * @param message The message to log.
  */
-export function addBreadcrumb(message: string) {
+export async function addBreadcrumb(message: string) {
+    const crashlytics = await getCrashlyticsInstance();
     if (!crashlytics) return;
 
+    const { log } = await import("firebase/crashlytics");
     log(crashlytics, message);
 }
