@@ -2,30 +2,52 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own data.
+
+    // 1. users
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId;
     }
 
-    // Leads can be read/written by the user who owns them.
+    // 2. leads
     match /leads/{leadId} {
       allow read, write: if request.auth.uid == resource.data.userId;
     }
 
-    // Targets can be read/written by the user who owns them.
+    // 3. targets
     match /targets/{targetId} {
       allow read, write: if request.auth.uid == resource.data.userId;
     }
 
-    // Actions can be read/written by the user who owns them.
-    match /actions/{actionId} {
+    // 4. workers (ADMIN ONLY)
+    match /workers/{workerId} {
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // 5. rawPosts (Service/Admin access only for writes)
+    match /rawPosts/{postId} {
+        allow read: if false; // No client-side reads
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // 6. actions (Subcollection)
+    match /users/{userId}/actions/{actionId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+
+    // 7. subscriptions
+    match /subscriptions/{userId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+
+    // 8. payments
+    match /payments/{paymentId} {
         allow read, write: if request.auth.uid == resource.data.userId;
     }
 
-    // The workers collection is admin-only.
-    // This assumes an 'isAdmin' flag on the user's document.
-    match /workers/{workerId} {
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    // 9. systemMetrics (ADMIN ONLY)
+    match /systemMetrics/current {
+        allow read: if request.auth != null; // Allow all authenticated users to read system metrics
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
   }
 }
