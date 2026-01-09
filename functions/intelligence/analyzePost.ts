@@ -1,74 +1,209 @@
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import { analyzePostWithGemini } from '../../utils/geminiClient';
-import { RawPostSchema } from '../../utils/validators';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 admin.initializeApp();
 
-const db = admin.firestore();
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const MAX_RETRIES = 3;
+export const analyzePost = functions.onDocumentCreated(
+  {
+    document: 'rawPosts/{postId}',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 30,
+    maxInstances: 10 // Free tier friendly
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
 
-// This function is triggered when a new document is created in the rawPosts collection.
-// It analyzes the post for lead potential using the Gemini API.
-export const analyzePost = functions.firestore
-  .document('rawPosts/{postId}')
-  .onCreate(async (snap, context) => {
-    // The following line is commented out but shows how you could get the user's business category.
-    // const userId = snap.data().userId;
-    // const user = await db.collection('users').doc(userId).get();
-    // const businessCategory = user.data()?.businessCategory || 'general';
-    const businessCategory = 'general'; // Using a default for now
+    const data = snapshot.data();
+    const { platform, postId, payload, text, authorHandle } = data;
 
-    const postData = snap.data();
-    const validationResult = RawPostSchema.safeParse(postData);
-
-    if (!validationResult.success) {
-      functions.logger.error('Invalid post data:', validationResult.error.message);
-      await db.collection('failedAnalysis').add({ ...postData, error: 'Invalid post data' });
+    // Check if already processed
+    if (data.processed) {
+      console.log(`Post ${postId} already processed`);
       return;
     }
 
-    // Exponential backoff for retries
-    for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      // Find matching target keywords
+      const targetsSnapshot = await admin.firestore()
+        .collection('targets')
+        .where('status', '==', 'active')
+        .where('platform', '==', platform)
+        .get();
+
+      const matchingTargets = targetsSnapshot.docs.filter(doc => {
+        const target = doc.data();
+        const term = target.term.toLowerCase();
+        const postText = text.toLowerCase();
+
+        return postText.includes(term);
+      });
+
+      if (matchingTargets.length === 0) {
+        // No matching targets, mark as processed
+        await snapshot.ref.update({ processed: true });
+        return;
+      }
+
+      // Get user context from the first matching target.
+      // Assumption: all targets found in a single post belong to the same user.
+      const userId = matchingTargets[0].data().userId;
+      const userDoc = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .get();
+
+      const userData = userDoc.data();
+
+      // Analyze with Gemini
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+
+      const prompt = `
+Analyze this social media post for commercial intent to BUY or HIRE services.
+
+Context:
+- User sells: ${userData?.businessCategory || 'services'}
+- Location: Kigali, Rwanda
+- Languages: Kinyarwanda, English, French (code-switching common)
+
+Post text: "${text}"
+
+Return ONLY valid JSON with this exact structure:
+{
+  "is_lead": boolean,
+  "confidence_score": number (0-100),
+  "reason": string (max 100 chars),
+  "draft_reply": string (max 200 chars, professional tone)
+}
+
+Criteria for is_lead=true:
+- User explicitly asks for service/product
+- User expresses problem that business can solve
+- User requests recommendations
+- Clear buying/hiring intent
+
+Return is_lead=false for:
+- General comments
+- Appreciation posts
+- News/information sharing
+- Off-topic content
+`;
+
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const responseText = response.text();
+
+      // Parse JSON response
+      let analysis;
       try {
-        // Caching logic would go here. For example, you could check if a similar post has been analyzed before.
+        // Remove markdown code blocks if present
+        const cleanText = responseText
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+        analysis = JSON.parse(cleanText);
+      } catch (parseError) {
+        console.error('Failed to parse Gemini response:', responseText);
+        throw new Error('Invalid JSON response from AI');
+      }
 
-        const analysis = await analyzePostWithGemini(validationResult.data, businessCategory);
+      // Validate response structure
+      if (typeof analysis.is_lead !== 'boolean' ||
+          typeof analysis.confidence_score !== 'number' ||
+          typeof analysis.reason !== 'string' ||
+          typeof analysis.draft_reply !== 'string') {
+        throw new Error('Invalid response structure');
+      }
 
-        if (analysis.is_lead && analysis.confidence_score >= 50) {
-          await db.collection('leads').add({
-            ...validationResult.data,
+      // Only create lead if confidence >= 50%
+      if (analysis.is_lead && analysis.confidence_score >= 50) {
+        const leadId = admin.firestore().collection('leads').doc().id;
+
+        await admin.firestore()
+          .collection('leads')
+          .doc(leadId)
+          .set({
+            id: leadId,
+            userId: userId,
+            platform: platform,
+            postId: postId,
+            postUrl: payload.url || '',
+            text: text,
+            author: payload.author || 'Unknown',
+            authorHandle: authorHandle,
+            authorAvatarUrl: payload.avatar || null,
             confidence: analysis.confidence_score,
             reason: analysis.reason,
             draftReply: analysis.draft_reply,
+            tags: matchingTargets.map(t => t.data().term),
             status: 'new',
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            actedAt: null,
+            timestamp: payload.timestamp || admin.firestore.FieldValue.serverTimestamp(),
+            scrapedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
 
-          // Trigger notification
-          // This assumes you have a function named 'sendLeadNotification'
-          // await admin.messaging().sendToTopic('new_leads', { ... });
+        // Update user stats (denormalized)
+        await admin.firestore()
+          .collection('users')
+          .doc(userId)
+          .update({
+            'stats.totalLeads': admin.firestore.FieldValue.increment(1)
+          });
+
+        // Update target stats
+        for (const targetDoc of matchingTargets) {
+          await targetDoc.ref.update({
+            leadsFound: admin.firestore.FieldValue.increment(1)
+          });
         }
 
-        return; // Success, exit the loop
-      } catch (error: any) {
-        functions.logger.error(`Attempt ${i + 1} failed:`, error.message);
-        if (i === MAX_RETRIES - 1) {
-          await db.collection('failedAnalysis').add({ ...postData, error: error.message });
+        // Send notification if enabled
+        if (userData?.notificationsEnabled && userData?.fcmToken) {
+          await admin.messaging().send({
+            token: userData.fcmToken,
+            notification: {
+              title: '🎯 New High-Intent Lead',
+              body: `${payload.author} (${analysis.confidence_score}% confidence)`
+            },
+            data: {
+              leadId: leadId,
+              url: `/leads/${leadId}`
+            }
+          });
         }
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+
+        // Track metrics
+        await admin.firestore()
+          .collection('systemMetrics')
+          .doc('current')
+          .update({
+            leadsGenerated: admin.firestore.FieldValue.increment(1)
+          });
       }
-    }
-  });
 
-/*
-* To implement batch processing, you would typically use a Pub/Sub triggered function.
-* You could have a cron job that collects posts and sends them to a Pub/Sub topic in a batch.
-* The Pub/Sub function would then receive the batch and process them in parallel.
-*
-* For cost control with a circuit breaker, you could use a library like 'opossum'
-* to wrap the Gemini API call. This would prevent the function from making further calls
-* if the API is returning errors or if the cost exceeds a certain threshold.
-*/
+      // Mark as processed
+      await snapshot.ref.update({ processed: true });
+
+    } catch (error: any) {
+      console.error('Analysis failed:', error);
+
+      // Store failed analysis for manual review
+      await admin.firestore()
+        .collection('failedAnalysis')
+        .add({
+          postId: postId,
+          platform: platform,
+          text: text,
+          error: error.message,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+    }
+  }
+);
