@@ -1,57 +1,120 @@
+// functions/src/scraping/executeScrape.ts
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v2/pubsub';
 import * as admin from 'firebase-admin';
-import { PubSub } from '@google-cloud/pubsub';
-import { decrypt } from '../../utils/encryption'; // Assuming you have an encryption utility
-import { InstagramEngine } from './engines/InstagramEngine';
-import { TwitterEngine } from './engines/TwitterEngine';
+import { decrypt } from '../utils/encryption';
+import { InstagramScraper } from './scrapers/InstagramScraper';
+import { TwitterScraper } from './scrapers/TwitterScraper';
 
-const db = admin.firestore();
-const pubsub = new PubSub();
-const BAN_TOPIC = 'worker-banned';
+export const executeScrape = functions.onMessagePublished(
+  {
+    topic: 'scrape-jobs',
+    region: 'us-central1',
+    memory: '512MiB', // Puppeteer needs more memory
+    timeoutSeconds: 60
+  },
+  async (event) => {
+    const jobData = JSON.parse(
+      Buffer.from(event.data.message.data, 'base64').toString()
+    );
 
-export const executeScrape = functions.https.onRequest(async (req, res) => {
-  const { targetId, workerId, platform, searchTerm } = req.body;
+    const { targetId, workerId, platform, term } = jobData;
 
-  try {
-    const workerRef = db.collection('workers').doc(workerId);
-    const workerDoc = await workerRef.get();
+    try {
+      // Get worker credentials
+      const workerDoc = await admin.firestore()
+        .collection('workers')
+        .doc(workerId)
+        .get();
 
-    if (!workerDoc.exists) {
-      throw new Error(`Worker ${workerId} not found.`);
+      if (!workerDoc.exists) {
+        throw new Error(`Worker ${workerId} not found`);
+      }
+
+      const worker = workerDoc.data()!;
+      const credentials = JSON.parse(
+        decrypt(worker.cookieBlobEncrypted)
+      );
+
+      // Execute scrape based on platform
+      let posts: any[] = [];
+
+      if (platform === 'instagram') {
+        const scraper = new InstagramScraper(credentials);
+        posts = await scraper.scrapeHashtag(term);
+      } else if (platform === 'twitter') {
+        const scraper = new TwitterScraper(credentials);
+        posts = await scraper.searchKeyword(term);
+      }
+
+      console.log(`Scraped ${posts.length} posts for target ${targetId}`);
+
+      // Store raw posts in Firestore
+      const batch = admin.firestore().batch();
+
+      for (const post of posts) {
+        const postRef = admin.firestore()
+          .collection('rawPosts')
+          .doc(`${platform}_${post.id}`);
+
+        batch.set(postRef, {
+          platform: platform,
+          postId: post.id,
+          text: post.text,
+          authorHandle: post.author,
+          payload: post,
+          processed: false,
+          scrapedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }); // Avoid duplicates
+      }
+
+      await batch.commit();
+
+      // Release worker
+      await admin.firestore()
+        .collection('workers')
+        .doc(workerId)
+        .update({
+          status: 'idle',
+          requestsToday: admin.firestore.FieldValue.increment(posts.length)
+        });
+
+      // Update target metrics
+      await admin.firestore()
+        .collection('targets')
+        .doc(targetId)
+        .update({
+          lastScrapedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+    } catch (error: any) {
+      console.error(`Scrape failed for target ${targetId}:`, error);
+
+      // Handle rate limiting / ban detection
+      if (error.message.includes('429') ||
+          error.message.includes('captcha') ||
+          error.message.includes('rate limit')) {
+
+        await admin.firestore()
+          .collection('workers')
+          .doc(workerId)
+          .update({
+            status: 'banned',
+            banReason: error.message,
+            bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+            quarantineUntil: new admin.firestore.Timestamp(
+              Math.floor(Date.now() / 1000) + 86400, 0 // 24 hours
+            )
+          });
+
+        console.log(`Worker ${workerId} quarantined for 24 hours`);
+      } else {
+        // Release worker for other errors
+        await admin.firestore()
+          .collection('workers')
+          .doc(workerId)
+          .update({ status: 'idle' });
+      }
     }
-
-    const worker = workerDoc.data()!;
-    const credentials = JSON.parse(decrypt(worker.cookieBlob));
-
-    let posts;
-    if (platform === 'instagram') {
-      posts = await InstagramEngine.scrape(searchTerm, credentials);
-    } else if (platform === 'twitter') {
-      posts = await TwitterEngine.scrape(searchTerm, credentials);
-    } else {
-      throw new Error(`Unsupported platform: ${platform}`);
-    }
-
-    const batch = db.batch();
-    posts.forEach(post => {
-      const postRef = db.collection('rawPosts').doc(); // Auto-generate ID
-      batch.set(postRef, post);
-    });
-    await batch.commit();
-
-    await db.collection('targets').doc(targetId).update({ lastScanned: admin.firestore.FieldValue.serverTimestamp() });
-    await workerRef.update({ status: 'idle' });
-
-    res.status(200).send('Scrape successful');
-  } catch (error: any) {
-    console.error('Scrape failed:', error.message);
-
-    if (error.message.includes('429') || error.message.includes('captcha')) {
-      await db.collection('workers').doc(workerId).update({ status: 'banned', quarantinedUntil: admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000) });
-      await pubsub.topic(BAN_TOPIC).publish(Buffer.from(JSON.stringify({ workerId, reason: 'banned' })));
-    }
-
-    res.status(500).send('Scrape failed');
   }
-});
+);
